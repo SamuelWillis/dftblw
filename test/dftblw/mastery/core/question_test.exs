@@ -1,40 +1,45 @@
 defmodule DFTBLW.Mastery.Core.QuestionTest do
   use ExUnit.Case, async: true
+  use QuizBuilders
 
   alias DFTBLW.Mastery.Core.Question
   alias DFTBLW.Mastery.Core.Template
 
-  describe "new/1" do
-    setup do
-      template_generator = %{left: [1, 2], right: [1, 2]}
+  test "building chooses substitutions" do
+    question = build_question(generators: addition_generators([1], [2]))
 
-      template_checker = fn sub, answer ->
-        sub[:left] + sub[:right] == String.to_integer(answer)
-      end
+    assert question.substitutions == [left: 1, right: 2]
+  end
 
-      template =
-        Template.new(
-          name: :single_digit_addition,
-          category: :addition,
-          instructions: "Add the two numbers",
-          raw: "<%= @left %> + <%= @right %>",
-          generators: template_generator,
-          checker: template_checker
-        )
+  test "function generators are called" do
+    generators = addition_generators(fn -> 42 end, [0])
 
-      {:ok, template: template}
-    end
+    assert %Question{substitutions: substitutions} = build_question(generators: generators)
 
-    test "builds a new question from a template", %{template: template} do
-      assert %Question{} = question = Question.new(template)
+    assert Keyword.fetch!(substitutions, :left) == generators.left.()
+  end
 
-      assert question.template == template
+  test "building creates asked question text" do
+    question = build_question(generators: addition_generators([1], [2]))
 
-      Enum.each(template.generators, fn {generator_key, possible_substitutions} ->
-        assert substitution = Keyword.fetch!(question.substitutions, generator_key)
+    assert question.asked == "1 + 2"
+  end
 
-        assert substitution in possible_substitutions
-      end)
-    end
+  test "a random choice is made from list generators" do
+    generators = addition_generators(Enum.to_list(1..9), [0])
+
+    assert eventually_match(generators, 1)
+    assert eventually_match(generators, 9)
+  end
+
+  defp eventually_match(generators, answer) do
+    Stream.repeatedly(fn ->
+      %Question{substitutions: substitutions} = build_question(generators: generators)
+
+      substitutions
+    end)
+    |> Enum.find(fn substitution ->
+      Keyword.fetch!(substitution, :left) == answer
+    end)
   end
 end

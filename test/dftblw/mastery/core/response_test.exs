@@ -1,42 +1,49 @@
 defmodule DFTBLW.Mastery.Core.ResponseTest do
   use ExUnit.Case, async: true
+  use QuizBuilders
 
   alias DFTBLW.Mastery.Core.Quiz
   alias DFTBLW.Mastery.Core.Response
 
-  @email "test@example.com"
+  @user_email "test@example.com"
 
-  describe "new/3" do
-    test "builds new response to current question" do
-      quiz = build_quiz()
+  describe "Response checks answers" do
+    setup [:correct_response, :incorrect_response]
 
-      assert %Response{} = response = Response.new(quiz, @email, "3")
+    test "building response checks answers", %{
+      correct_response: correct_response,
+      incorrect_response: incorrect_response
+    } do
+      assert correct_response.correct
+      refute incorrect_response.correct
+    end
 
-      assert response.quiz_title == quiz.title
-      assert response.template_name == quiz.current_question.template.name
-      assert response.to == quiz.current_question.asked
-      assert response.email == @email
-      assert response.answer == "3"
-      assert is_boolean(response.correct)
+    test "timestamp is added at build time", %{correct_response: correct_response} do
+      assert %DateTime{} = correct_response.timestamp
+
+      assert correct_response.timestamp < DateTime.utc_now()
     end
   end
 
-  defp build_quiz do
-    template_generator = %{left: [1, 2], right: [1, 2]}
+  defp correct_response(_context) do
+    quiz = quiz()
+    %{correct_response: build_response(quiz, "3")}
+  end
 
-    template_checker = fn sub, answer ->
-      sub[:left] + sub[:right] == String.to_integer(answer)
-    end
+  defp incorrect_response(_context) do
+    quiz = quiz()
+    %{incorrect_response: build_response(quiz, "2")}
+  end
 
-    Quiz.new(title: "Additon Test", mastery: 2)
-    |> Quiz.add_template(
-      name: :single_digit_addition,
-      category: :addition,
-      instructions: "Add the two numbers",
-      raw: "<%= @left %> + <%= @right %>",
-      generators: template_generator,
-      checker: template_checker
-    )
+  defp quiz do
+    fields = template_fields(generators: %{left: [1], right: [2]})
+
+    build_quiz()
+    |> Quiz.add_template(fields)
     |> Quiz.select_question()
+  end
+
+  defp build_response(quiz, answer) do
+    Response.new(quiz, @user_email, answer)
   end
 end

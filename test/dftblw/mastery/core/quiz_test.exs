@@ -1,68 +1,97 @@
 defmodule DFTBLW.Mastery.Core.QuizTest do
   use ExUnit.Case, async: true
+  use QuizBuilders
 
   alias DFTBLW.Mastery.Core.Quiz
-  alias DFTBLW.Mastery.Core.Question
-  alias DFTBLW.Mastery.Core.Response
-  alias DFTBLW.Mastery.Core.Template
 
-  @quiz Quiz.new(title: "Additon Test", mastery: 2)
+  @user_email "test@example.com"
 
-  describe "new/1" do
-    test "builds a new quiz" do
-      assert %Quiz{} = @quiz
+  describe "when a quiz has 2 templates" do
+    setup [:quiz]
+
+    test "the next question is randomly selected", %{quiz: quiz} do
+      assert %Quiz{current_question: %{template: first_template}} = Quiz.select_question(quiz)
+
+      assert other_template = eventually_pick_other_template(quiz, first_template)
+
+      assert first_template != other_template
+    end
+
+    test "templates are unique until cycle repeats", %{quiz: quiz} do
+      assert %Quiz{} = first_quiz = Quiz.select_question(quiz)
+      assert %Quiz{} = second_quiz = Quiz.select_question(first_quiz)
+      assert %Quiz{} = reset_quiz = Quiz.select_question(second_quiz)
+
+      assert template(first_quiz) != template(second_quiz)
+
+      assert template(reset_quiz) in [template(first_quiz), template(second_quiz)]
     end
   end
 
-  describe "add_template/2" do
-    test "adds a new template to the quiz" do
-      assert %Quiz{} = quiz = quiz_with_template()
+  describe "a quiz that always adds one and two" do
+    setup [:quiz_always_adds_one_and_two]
 
-      assert %{addition: [%Template{}]} = quiz.templates
+    test "a wrong answer resets mastery", %{quiz: quiz} do
+      quiz
+      |> Quiz.select_question()
+      |> assert_more_questions()
+      |> right_answer()
+      |> Quiz.select_question()
+      |> assert_more_questions()
+      |> wrong_answer()
+      |> Quiz.select_question()
+      |> assert_more_questions()
+      |> right_answer()
+      |> Quiz.select_question()
+      |> assert_more_questions()
+      |> right_answer()
+      |> Quiz.select_question()
+      |> refute_more_questions()
     end
   end
 
-  describe "select_question/1" do
-    test "returns quiz for no templates" do
-      assert @quiz == Quiz.select_question(@quiz)
-    end
-
-    test "returns quiz with current question" do
-      quiz = quiz_with_template()
-      assert %Quiz{} = quiz = Quiz.select_question(quiz)
-
-      assert %Question{} = quiz.current_question
-
-      # Only one template so used templates will be empty
-      assert [] = quiz.used
-    end
+  defp quiz(_context) do
+    %{quiz: build_quiz_with_two_templates()}
   end
 
-  describe "answer_question/2" do
-    test "answers question" do
-      quiz = quiz_with_template() |> Quiz.select_question()
-      response = Response.new(quiz, "test@example.com", "3")
+  defp quiz_always_adds_one_and_two(_context) do
+    fields = template_fields(generators: addition_generators([1], [2]))
 
-      assert %Quiz{} = quiz = Quiz.answer_question(quiz, response)
+    quiz =
+      build_quiz(mastery: 2)
+      |> Quiz.add_template(fields)
 
-      assert quiz.last_response == response
-    end
+    %{quiz: quiz}
   end
 
-  defp quiz_with_template do
-    template_generator = %{left: [1, 2], right: [1, 2]}
+  defp assert_more_questions(quiz) do
+    refute is_nil(quiz)
+    quiz
+  end
 
-    template_checker = fn sub, answer ->
-      sub[:left] + sub[:right] == String.to_integer(answer)
-    end
+  defp refute_more_questions(quiz) do
+    assert is_nil(quiz)
+    quiz
+  end
 
-    Quiz.add_template(@quiz,
-      name: :single_digit_addition,
-      category: :addition,
-      instructions: "Add the two numbers",
-      raw: "<%= @left %> + <%= @right %>",
-      generators: template_generator,
-      checker: template_checker
-    )
+  defp eventually_pick_other_template(quiz, template) do
+    Stream.repeatedly(fn ->
+      Quiz.select_question(quiz).current_question.template
+    end)
+    |> Enum.find(&(&1 != template))
+  end
+
+  defp right_answer(quiz), do: answer_question(quiz, "3")
+
+  defp wrong_answer(quiz), do: answer_question(quiz, "2")
+
+  defp answer_question(quiz, answer) do
+    response = Response.new(quiz, @user_email, answer)
+
+    Quiz.answer_question(quiz, response)
+  end
+
+  defp template(quiz) do
+    quiz.current_question.template
   end
 end

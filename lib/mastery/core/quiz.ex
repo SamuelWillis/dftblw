@@ -77,7 +77,7 @@ defmodule DFTBLW.Mastery.Core.Quiz do
     |> reset_template_cycle()
   end
 
-  def select_question(%__MODULE__{} = quiz), do: quiz
+  def select_question(%__MODULE__{} = quiz), do: nil
 
   @doc """
   Answer a question based on correctness of response.
