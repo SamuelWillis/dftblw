@@ -3,7 +3,6 @@ defmodule DFTBLW.Mastery.Core.QuestionTest do
   use QuizBuilders
 
   alias DFTBLW.Mastery.Core.Question
-  alias DFTBLW.Mastery.Core.Template
 
   test "building chooses substitutions" do
     question = build_question(generators: addition_generators([1], [2]))
