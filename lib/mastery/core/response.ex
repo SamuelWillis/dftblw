@@ -3,6 +3,8 @@ defmodule DFTBLW.Mastery.Core.Response do
   A user's answer to a question
   """
 
+  alias DFTBLW.Mastery.Core.Quiz
+
   defstruct ~w[quiz_title template_name to email answer correct timestamp]a
 
   @type t :: %__MODULE__{

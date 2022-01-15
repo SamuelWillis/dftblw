@@ -46,7 +46,6 @@ defmodule DFTBLW.Mastery.Core.Quiz do
   @doc """
   Construct a new quiz
   """
-  @spec new(keyword()) :: t()
   def new(fields), do: struct!(__MODULE__, fields)
 
   @doc """
@@ -69,7 +68,7 @@ defmodule DFTBLW.Mastery.Core.Quiz do
   @doc """
   Selects a question.
   """
-  @spec select_question(t()) :: t()
+  @spec select_question(t()) :: t() | nil
   def select_question(%__MODULE__{} = quiz) when map_size(quiz.templates) != 0 do
     quiz
     |> pick_current_question()
@@ -77,7 +76,7 @@ defmodule DFTBLW.Mastery.Core.Quiz do
     |> reset_template_cycle()
   end
 
-  def select_question(%__MODULE__{} = quiz), do: nil
+  def select_question(%__MODULE__{}), do: nil
 
   @doc """
   Answer a question based on correctness of response.
