@@ -10,6 +10,7 @@ defmodule DFTBLW.Mastery.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      DFTBLW.Repo,
       {Mastery.Boundary.QuizManager, [name: DFTBLW.Mastery.Boundary.QuizManager]},
       {Registry, [name: DFTBLW.Mastery.Registry.QuizSession, keys: :unique]},
       {Mastery.Boundary.Proctor, [name: Mastery.Boundary.Proctor]},
