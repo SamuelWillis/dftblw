@@ -13,7 +13,8 @@ defmodule DFTBLW.Mastery.Boundary.QuizSession do
 
   def select_question(name), do: GenServer.call(via(name), :select_question)
 
-  def answer_question(name, answer), do: GenServer.call(via(name), {:answer_question, answer})
+  def answer_question(name, answer, persistence_fn),
+    do: GenServer.call(via(name), {:answer_question, answer, persistence_fn})
 
   def active_sessions_for(quiz_title) do
     DFTBLW.Mastery.Supervisor.QuizSession
@@ -47,12 +48,17 @@ defmodule DFTBLW.Mastery.Boundary.QuizSession do
     {:reply, quiz.current_question.asked, {quiz, email}}
   end
 
-  def handle_call({:answer_question, answer}, _from, {quiz, email}),
-    do:
+  def handle_call({:answer_question, answer, persistence_fn}, _from, {quiz, email}) do
+    persistence_fn = persistence_fn || fn r, f -> f.(r) end
+    response = Response.new(quiz, email, answer)
+
+    persistence_fn.(response, fn r ->
       quiz
-      |> Quiz.answer_question(Response.new(quiz, email, answer))
+      |> Quiz.answer_question(response)
       |> Quiz.select_question()
-      |> maybe_finish(email)
+    end)
+    |> maybe_finish(email)
+  end
 
   defp maybe_finish(nil, _email), do: {:stop, :normal, :finished, nil}
 

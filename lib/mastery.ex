@@ -43,7 +43,8 @@ defmodule DFTBLW.Mastery do
 
   def select_question(session), do: QuizSession.select_question(session)
 
-  def answer_question(session, answer), do: QuizSession.answer_question(session, answer)
+  def answer_question(session, answer),
+    do: QuizSession.answer_question(session, answer, persistence_fn \\ &record_response/2)
 
   def record_response(response, in_transaction \\ fn _response -> :ok end) do
     {:ok, result} =
