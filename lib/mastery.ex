@@ -1,10 +1,14 @@
 defmodule DFTBLW.Mastery do
+  import Ecto.Query, only: [from: 2]
+
   alias DFTBLW.Mastery.Boundary.Proctor
   alias DFTBLW.Mastery.Boundary.QuizManager
   alias DFTBLW.Mastery.Boundary.QuizSession
   alias DFTBLW.Mastery.Boundary.QuizValidator
   alias DFTBLW.Mastery.Boundary.TemplateValidator
   alias DFTBLW.Mastery.Core.Quiz
+  alias DFTBLW.Mastery.Persistence.Response
+  alias DFTBLW.Repo
 
   @quiz_manager QuizManager
 
@@ -40,4 +44,41 @@ defmodule DFTBLW.Mastery do
   def select_question(session), do: QuizSession.select_question(session)
 
   def answer_question(session, answer), do: QuizSession.answer_question(session, answer)
+
+  def record_response(response, in_transaction \\ fn _response -> :ok end) do
+    {:ok, result} =
+      Repo.transaction(fn ->
+        %{
+          quiz_title: to_string(response.quiz_title),
+          template_name: to_string(response.template_name),
+          to: response.to,
+          email: response.email,
+          answer: response.answer,
+          correct: response.correct,
+          inserted_at: response.timestamp,
+          updated_at: response.timestamp
+        }
+        |> Response.record_changeset()
+        |> Repo.insert!()
+
+        in_transaction.(response)
+      end)
+
+    result
+  end
+
+  def report(quiz_title) do
+    quiz_title = to_string(quiz_title)
+
+    query =
+      from(r in Response,
+        select: {r.email, count(r.id)},
+        where: r.quiz_title == ^quiz_title,
+        group_by: [r.quiz_title, r.email]
+      )
+
+    query
+    |> Repo.all()
+    |> Enum.into(Map.new())
+  end
 end
